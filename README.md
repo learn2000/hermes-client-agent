@@ -262,7 +262,7 @@ Restart Hermes after configuration. The plugin logs loaded agents on startup.
 | `HERMES_DASHBOARD_TOKEN` | `HERMES_AGENT_TOKEN` | Optional separate token for dashboard access |
 | `HERMES_AGENT_HOST` | `0.0.0.0` | Listen interface |
 | `HERMES_AGENT_PORT` | `8765` | Listen port |
-| `HERMES_ALLOWED_PATHS` | `~`, `/home`, `C:\Users\` | File access whitelist |
+| `HERMES_ALLOWED_PATHS` | `~` + `/tmp` (Linux), `~` + `D:\` (Windows) | File access whitelist |
 | `HERMES_DEBUG` | `false` | Enable debug logging |
 | `ACP_TASK_TIMEOUT` | `600` | Default ACP task timeout (seconds) |
 | `ACP_MAX_TIMEOUT` | `3600` | Maximum allowed ACP task timeout |
@@ -282,6 +282,18 @@ Restart Hermes after configuration. The plugin logs loaded agents on startup.
 
 ---
 
+## Linux support
+
+The agent is fully cross-platform. Linux-specific behaviour:
+
+- **Shell mapping** — `cmd` and `powershell` shells are automatically mapped to `/bin/bash -c`. Use `shell: "cmd"` in your requests on any OS — the agent adapts.
+- **Screenshot** — falls back through PIL ImageGrab → ImageMagick `import` → `grim` → `scrot`. On headless systems, returns 503 instead of crashing.
+- **File paths** — default `ALLOWED_PATHS` includes `/tmp` on Linux, `D:\` on Windows.
+- **Mouse/keyboard** — require `pyautogui` which works on X11.
+- **System tray** — `pystray` with X11/Wayland support.
+
+---
+
 ## Examples
 
 ```bash
@@ -294,13 +306,13 @@ curl -X POST http://agent:8765/exec \
   -H "Content-Type: application/json" \
   -d '{"command":"dir C:\\Users","shell":"cmd"}'
 
-# Run a command (Linux)
+# Run a command (Linux — shell is auto-mapped to bash)
 curl -X POST http://agent:8765/exec \
   -H "X-Agent-Token: YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"command":"ps aux | head -20","shell":"bash"}'
+  -d '{"command":"ps aux | head -20","shell":"cmd"}'
 
-# Take a screenshot
+# Take a screenshot (Win32 GDI / PIL ImageGrab / grim / ImageMagick import)
 curl http://agent:8765/screenshot \
   -H "X-Agent-Token: YOUR_TOKEN" \
   -o screen.png
@@ -317,7 +329,7 @@ curl "http://agent:8765/api/logs/export?format=csv" -H "X-Agent-Token: YOUR_TOKE
 ## Development
 
 ```bash
-uv run pytest tests/ -v       # 135 tests
+uv run pytest tests/ -v       # 149 tests
 python scripts/build_exe.py   # → dist/hermes-agent.exe (23.5 MiB)
 uv run ruff check .           # lint
 uv run ruff format .          # format
@@ -348,7 +360,7 @@ Run the full endpoint test suite:
 - [x] Debug logging — configurable via `HERMES_DEBUG` env var
 - [x] Linux compatibility — screenshot and exec support for Linux targets
 - [ ] Claude Code / Junie adapters for ACP Bridge (currently OpenCode only)
-- [ ] Native Linux agent (systemd, X11/Wayland screenshot, xdotool)
+- [x] Native Linux agent (bash exec, PIL/ImageMagick screenshot, cross-platform paths)
 - [ ] Native macOS agent (launchd, CoreGraphics screenshot)
 - [ ] Multi-agent dashboard (unified view of all agents)
 - [ ] Ed25519 key-based auth (stronger than bearer token)
