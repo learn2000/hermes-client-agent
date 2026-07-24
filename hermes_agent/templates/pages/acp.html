@@ -14,13 +14,13 @@
   </div>
   <div class="stat-card">
     <div class="value" id="acp-sessions-count">{{ acp.sessions_active }}</div>
-    <div class="label">Active Sessions</div>
+    <div class="label">Active Runtimes</div>
   </div>
   <div class="stat-card">
     <div class="value" id="acp-functional-test" style="color:{% if acp.functional_test.status == 'ok' %}#3fb950{% elif acp.functional_test.status == 'failed' %}#f85149{% else %}#8b949e{% endif %}">
       {{ acp.functional_test.status | upper if acp.functional_test.status else 'N/A' }}
     </div>
-    <div class="label">Functional Test</div>
+    <div class="label">Health</div>
   </div>
 </div>
 
@@ -40,12 +40,7 @@
 <div id="table-wrapper">
   <table>
     <thead>
-      <tr>
-        <th>Task ID</th>
-        <th>Prompt</th>
-        <th>Created</th>
-        <th></th>
-      </tr>
+      <tr><th>Task ID</th><th>Prompt</th><th>Created</th><th></th></tr>
     </thead>
     <tbody>
       {% for t in running_tasks %}
@@ -61,125 +56,84 @@
 </div>
 {% endif %}
 
-<h2 style="font-size:16px;color:#8b949e;margin:16px 0 8px">Active Sessions</h2>
+<h2 style="font-size:16px;color:#8b949e;margin:16px 0 8px">Active Runtimes</h2>
 {% if acp.sessions %}
 <div id="table-wrapper">
   <table>
     <thead>
-      <tr>
-        <th>Session ID</th>
-        <th>Port</th>
-        <th>PID</th>
-        <th>Agent</th>
-        <th>Exchanges</th>
-        <th>Created</th>
-        <th>Heartbeat</th>
-      </tr>
+      <tr><th>Runtime ID</th><th>Port</th><th>PID</th><th>Adapter</th><th>Status</th><th>Created</th><th>Last Health</th><th></th></tr>
     </thead>
     <tbody>
       {% for s in acp.sessions %}
-      <tr style="cursor:pointer" onclick="openLiveRuntime('{{ s.session_id }}')" title="View conversation history">
+      <tr>
         <td>{{ s.session_id }}</td>
-        <td><span class="badge ok">{{ s.port }}</span></td>
+        <td><a href="http://localhost:{{ s.port }}/" target="_blank" class="badge ok" style="text-decoration:none">{{ s.port }}</a></td>
         <td>{{ s.pid or '-' }}</td>
-        <td>{{ s.agent_type }}</td>
-        <td>{{ s.exchange_count }}</td>
+        <td>{{ s.adapter or 'opencode' }}</td>
+        <td><span class="badge {{ 'ok' if s.status == 'ready' else 'warn' }}">{{ s.status }}</span></td>
         <td>{{ s.created_at[:19] if s.created_at else '-' }}</td>
-        <td>{{ s.last_heartbeat[:19] if s.last_heartbeat else '-' }}</td>
+        <td>{{ s.last_health[:19] if s.last_health else '-' }}</td>
+        <td><a href="javascript:void(0)" onclick="openLiveRuntime('{{ s.session_id }}')" style="color:#58a6ff">View History</a></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 {% else %}
-<p style="color:#8b949e;font-size:13px;padding:16px 0">No active sessions</p>
+<p style="color:#8b949e;font-size:13px;padding:16px 0">No active runtimes</p>
 {% endif %}
 
 <h2 style="font-size:16px;color:#8b949e;margin:20px 0 8px">Configuration</h2>
 <table style="margin-bottom:24px">
   <tbody>
-    <tr>
-      <td style="color:#8b949e;width:140px">Binary path</td>
-      <td>{{ acp.binary.path or 'Not found' }}</td>
-    </tr>
-    <tr>
-      <td style="color:#8b949e">Config file</td>
-      <td>{{ acp.config.config_file or 'Not found' }}</td>
-    </tr>
-    <tr>
-      <td style="color:#8b949e">Default model</td>
-      <td>{{ acp.config.default_model or 'Not set' }}</td>
-    </tr>
+    <tr><td style="color:#8b949e;width:140px">Binary path</td><td>{{ acp.binary.path or 'Not found' }}</td></tr>
+    <tr><td style="color:#8b949e">Config file</td><td>{{ acp.config.config_file or 'Not found' }}</td></tr>
+    <tr><td style="color:#8b949e">Default model</td><td>{{ acp.config.default_model or 'Not set' }}</td></tr>
   </tbody>
 </table>
 
 <script>
-function openLive(taskId) {
-  openLiveWindow(taskId, '/acp/tasks/' + taskId + '/live');
-}
-
-function openLiveRuntime(runtimeId) {
-  openLiveWindow(runtimeId, '/acp/runtimes/' + runtimeId + '/live');
-}
+function openLive(taskId) { openLiveWindow(taskId, '/acp/tasks/' + taskId + '/live'); }
+function openLiveRuntime(runtimeId) { openLiveWindow(runtimeId, '/acp/runtimes/' + runtimeId + '/live'); }
 
 function openLiveWindow(id, endpoint) {
   var w = window.open('', '_blank', 'width=900,height=700');
   w.document.write('<html><head><title>Live: ' + id + '</title><style>body{background:#0d1117;color:#c9d1d9;font:13px monospace;padding:16px;margin:0}h2{color:#58a6ff;font-size:14px;margin:0 0 8px 0}.msg{padding:8px;margin:4px 0;border-radius:4px}.user{background:#161b22;border-left:2px solid #58a6ff}.assistant{background:#0d1117;border-left:2px solid #3fb950}.text{white-space:pre-wrap;word-break:break-word}.meta{font-size:11px;color:#8b949e;margin-bottom:4px}.tool{color:#d29922;margin-left:8px}@keyframes spin{to{transform:rotate(360deg)}}.spinner{display:inline-block;width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}</style></head><body><h2><span class="spinner"></span> ' + id + '</h2><div id="log"></div></body></html>');
-
   var refresh = setInterval(function() {
-    fetch(endpoint)
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        var html = '';
-        var msgs = d.messages || [];
-        if (d.note) { document.getElementById('log').innerHTML = '<p style="color:#8b949e">' + d.note + '</p>'; return; }
-        if (d.error) { document.getElementById('log').innerHTML = '<p style="color:#f85149">' + d.error + '</p>'; clearInterval(refresh); return; }
-        for (var i = Math.max(0, msgs.length - 30); i < msgs.length; i++) {
-          var m = msgs[i];
-          var info = m.info || {};
-          var role = info.role || '?';
-          var cls = role === 'user' ? 'user' : 'assistant';
-          html += '<div class="msg ' + cls + '">';
-          html += '<div class="meta">[' + i + '] ' + role;
-          if (info.modelID) html += ' | ' + info.modelID;
-          html += '</div>';
-          (m.parts || []).forEach(function(p) {
-            if (p.type === 'text' && p.text) html += '<div class="text">' + p.text + '</div>';
-            else if (p.type === 'step-start') html += '<div class="tool">step started</div>';
-            else if (p.type === 'step-finish') html += '<div class="tool">step finished</div>';
-            else if (p.type && p.type !== 'text') html += '<div class="tool">' + p.type + '</div>';
-          });
-          html += '</div>';
-        }
-        document.getElementById('log').innerHTML = html || '<p style="color:#8b949e">Waiting for messages...</p>';
-        if (msgs.length > 30) {
-          document.getElementById('log').innerHTML = '<p style="color:#8b949e;font-size:11px">Showing last 30 of ' + msgs.length + ' messages</p>' + html;
-        }
-        window.scrollTo(0, document.body.scrollHeight);
-        if (d.count && d.messages.length > 0) {
-          var lastMsg = d.messages[d.messages.length - 1];
-          var lastRole = (lastMsg.info || {}).role;
-          if (lastRole === 'assistant') { clearInterval(refresh); }
-        }
-      })
-      .catch(function() {});
+    fetch(endpoint).then(function(r) { return r.json(); }).then(function(d) {
+      var html = '';
+      var msgs = d.messages || [];
+      if (d.note) { document.getElementById('log').innerHTML = '<p style="color:#8b949e">' + d.note + '</p>'; return; }
+      if (d.error) { document.getElementById('log').innerHTML = '<p style="color:#f85149">' + d.error + '</p>'; clearInterval(refresh); return; }
+      for (var i = Math.max(0, msgs.length - 30); i < msgs.length; i++) {
+        var m = msgs[i], info = m.info || {}, role = info.role || '?';
+        var cls = role === 'user' ? 'user' : 'assistant';
+        html += '<div class="msg ' + cls + '"><div class="meta">[' + i + '] ' + role;
+        if (info.modelID) html += ' | ' + info.modelID;
+        html += '</div>';
+        (m.parts || []).forEach(function(p) {
+          if (p.type === 'text' && p.text) html += '<div class="text">' + p.text + '</div>';
+          else if (p.type && p.type !== 'text') html += '<div class="tool">' + p.type + '</div>';
+        });
+        html += '</div>';
+      }
+      document.getElementById('log').innerHTML = html || '<p style="color:#8b949e">Waiting...</p>';
+      if (msgs.length > 30) document.getElementById('log').innerHTML = '<p style="color:#8b949e;font-size:11px">Last 30 of ' + msgs.length + '</p>' + html;
+      window.scrollTo(0, document.body.scrollHeight);
+    }).catch(function() {});
   }, 2000);
 }
 
 (function() {
   setInterval(function() {
-    fetch('/acp/diagnostics')
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        document.getElementById('acp-sessions-count').textContent = d.sessions_active;
-        document.getElementById('acp-binary-status').textContent = d.binary.installed ? 'Online' : 'Offline';
-        if (d.binary.version) document.getElementById('acp-version').textContent = d.binary.version;
-        var ft = d.functional_test || {};
-        var el = document.getElementById('acp-functional-test');
-        el.textContent = (ft.status || 'N/A').toUpperCase();
-        el.style.color = ft.status === 'ok' ? '#3fb950' : ft.status === 'failed' ? '#f85149' : '#8b949e';
-      })
-      .catch(function() {});
+    fetch('/acp/diagnostics').then(function(r) { return r.json(); }).then(function(d) {
+      document.getElementById('acp-sessions-count').textContent = d.sessions_active;
+      document.getElementById('acp-binary-status').textContent = d.binary.installed ? 'Online' : 'Offline';
+      if (d.binary.version) document.getElementById('acp-version').textContent = d.binary.version;
+      var ft = d.functional_test || {}, el = document.getElementById('acp-functional-test');
+      el.textContent = (ft.status || 'N/A').toUpperCase();
+      el.style.color = ft.status === 'ok' ? '#3fb950' : ft.status === 'failed' ? '#f85149' : '#8b949e';
+    }).catch(function() {});
   }, 10000);
 })();
 </script>

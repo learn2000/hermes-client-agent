@@ -212,17 +212,21 @@ def inspect_models(agent_url):
 
 def functional_test(agent_url):
     try:
-        resp = httpx.post(
-            agent_url.rstrip("/"),
-            json={"prompt": "respond with exactly the word OK and nothing else"},
+        base = agent_url.rstrip("/")
+        s = httpx.post(f"{base}/session", json={}, timeout=5)
+        s.raise_for_status()
+        sid = s.json()["id"]
+        r = httpx.post(
+            f"{base}/session/{sid}/message",
+            json={"parts": [{"type": "text", "text": "respond with exactly the word OK and nothing else"}]},
             timeout=FUNCTIONAL_TEST_TIMEOUT,
         )
-        if resp.status_code >= 400:
-            return {"status": "failed", "detail": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+        if r.status_code >= 400:
+            return {"status": "failed", "detail": f"HTTP {r.status_code}: {r.text[:200]}"}
         try:
-            data = resp.json()
+            data = r.json()
         except ValueError:
-            data = {"raw": resp.text[:500]}
+            data = {"raw": r.text[:500]}
         has_ok = False
         if isinstance(data, dict):
             flat = json.dumps(data).lower()
@@ -255,7 +259,19 @@ def run_diagnostics(agent_type="opencode"):
     from hermes_agent.acp.models import AcpRuntime
 
     runtimes = AcpRuntime.get_ready_managed()
-    sessions = [{"session_id": r["runtime_id"], "port": int(r["endpoint"].split(":")[-1]) if ":" in r.get("endpoint", "") else 0, "status": r["status"], "pid": r.get("pid")} for r in runtimes]
+    sessions = [
+        {
+            "session_id": r["runtime_id"],
+            "port": int(r["endpoint"].split(":")[-1]) if ":" in r.get("endpoint", "") else 0,
+            "status": r["status"],
+            "pid": r.get("pid"),
+            "adapter": r.get("adapter", "opencode"),
+            "managed": r.get("managed", True),
+            "created_at": r.get("created_at", ""),
+            "last_health": r.get("last_health_check", ""),
+        }
+        for r in runtimes
+    ]
     if sessions:
         s = sessions[0]
         port = s["port"]
