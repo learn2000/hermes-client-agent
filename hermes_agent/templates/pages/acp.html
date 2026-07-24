@@ -35,6 +35,32 @@
 </div>
 {% endif %}
 
+{% if running_tasks %}
+<h2 style="font-size:16px;color:#8b949e;margin:16px 0 8px">Running Tasks</h2>
+<div id="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Task ID</th>
+        <th>Prompt</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in running_tasks %}
+      <tr>
+        <td><span class="badge warn">{{ t.task_id }}</span></td>
+        <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.prompt[:100] }}</td>
+        <td>{{ t.created_at[:19] if t.created_at else '-' }}</td>
+        <td><a href="javascript:void(0)" onclick="openLive('{{ t.task_id }}')" style="color:#58a6ff">View Live</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <h2 style="font-size:16px;color:#8b949e;margin:16px 0 8px">Active Sessions</h2>
 {% if acp.sessions %}
 <div id="table-wrapper">
@@ -88,6 +114,43 @@
 </table>
 
 <script>
+function openLive(taskId) {
+  var w = window.open('', '_blank', 'width=900,height=700');
+  w.document.write('<html><head><title>Live: ' + taskId + '</title><style>body{background:#0d1117;color:#c9d1d9;font:13px monospace;padding:16px;margin:0}h2{color:#58a6ff;font-size:14px;margin:0 0 8px 0}.msg{padding:8px;margin:4px 0;border-radius:4px}.user{background:#161b22;border-left:2px solid #58a6ff}.assistant{background:#0d1117;border-left:2px solid #3fb950}.text{white-space:pre-wrap;word-break:break-word}.meta{font-size:11px;color:#8b949e;margin-bottom:4px}.tool{color:#d29922;margin-left:8px}@keyframes spin{to{transform:rotate(360deg)}}.spinner{display:inline-block;width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}</style></head><body><h2><span class="spinner"></span> ' + taskId + '</h2><div id="log"></div></body></html>');
+
+  setInterval(function() {
+    fetch('/acp/tasks/' + taskId + '/live')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var html = '';
+        var msgs = d.messages || [];
+        for (var i = Math.max(0, msgs.length - 20); i < msgs.length; i++) {
+          var m = msgs[i];
+          var info = m.info || {};
+          var role = info.role || '?';
+          var cls = role === 'user' ? 'user' : 'assistant';
+          html += '<div class="msg ' + cls + '">';
+          html += '<div class="meta">[' + i + '] ' + role;
+          if (info.modelID) html += ' | ' + info.modelID;
+          html += '</div>';
+          (m.parts || []).forEach(function(p) {
+            if (p.type === 'text' && p.text) html += '<div class="text">' + p.text + '</div>';
+            else if (p.type === 'step-start') html += '<div class="tool">&#9654; step started</div>';
+            else if (p.type === 'step-finish') html += '<div class="tool">&#9632; step finished</div>';
+            else if (p.type && p.type !== 'text') html += '<div class="tool">&#9881; ' + p.type + '</div>';
+          });
+          html += '</div>';
+        }
+        document.getElementById('log').innerHTML = html || '<p style="color:#8b949e">Waiting for messages...</p>';
+        if (msgs.length > 20) {
+          document.getElementById('log').innerHTML = '<p style="color:#8b949e;font-size:11px">Showing last 20 of ' + msgs.length + ' messages</p>' + html;
+        }
+        window.scrollTo(0, document.body.scrollHeight);
+      })
+      .catch(function() {});
+  }, 2000);
+}
+
 (function() {
   setInterval(function() {
     fetch('/acp/diagnostics')

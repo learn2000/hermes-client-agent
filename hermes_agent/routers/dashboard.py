@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from hermes_agent.acp.diagnostics import run_diagnostics
+from hermes_agent.acp.models import AcpTask
 from hermes_agent.audit.models import AuditLog
 from hermes_agent.security import verify_local_or_token
 
@@ -167,6 +168,7 @@ async def dashboard_acp_page(request: Request):
     extra = {
         "active_page": "acp",
         "acp": run_diagnostics(),
+        "running_tasks": AcpTask.get_running_tasks(),
     }
     stats = AuditLog.fetch_stats()
     ctx = {
