@@ -47,6 +47,41 @@ async def acp_task_status(task_id: str):
     return result
 
 
+@router.get("/acp/tasks/{task_id}/live", summary="Get live OpenCode session messages for a task")
+async def acp_task_live(task_id: str):
+    from hermes_agent.acp.models import AcpConversation, AcpRuntime, AcpTask
+
+    task = AcpTask.get_by_task_id(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    conv_id = task.conversation_id
+    if not conv_id:
+        return {"messages": [], "note": "no conversation attached yet"}
+
+    conv = AcpConversation.get_by_conversation_id(conv_id)
+    if not conv or not conv.runtime_id:
+        return {"messages": [], "note": "no runtime attached"}
+
+    runtime = AcpRuntime.get_or_none(AcpRuntime.runtime_id == conv.runtime_id)
+    if not runtime:
+        return {"messages": [], "note": "runtime not found"}
+
+    try:
+        import httpx
+
+        base = runtime.endpoint.rstrip("/")
+        sid = conv.upstream_session_id or ""
+        if not sid:
+            return {"messages": [], "note": "no upstream session yet"}
+        resp = httpx.get(f"{base}/session/{sid}/message", timeout=5)
+        resp.raise_for_status()
+        messages = resp.json()
+        return {"session_id": sid, "endpoint": runtime.endpoint, "count": len(messages), "messages": messages}
+    except Exception as exc:
+        return {"error": str(exc), "endpoint": runtime.endpoint}
+
+
 @router.delete("/acp/tasks/{task_id}", summary="Cancel a running task")
 async def acp_task_cancel(task_id: str):
     svc = get_task_service()
