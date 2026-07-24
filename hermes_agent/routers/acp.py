@@ -113,7 +113,7 @@ async def acp_diagnostics(agent_type: str = Query("opencode")):
     return run_diagnostics(agent_type)
 
 
-@router.get("/acp/runtimes/{runtime_id}/live", summary="Get live OpenCode session messages for a runtime")
+@router.get("/acp/runtimes/{runtime_id}/live", summary="Get live OpenCode session messages for a runtime", dependencies=[])
 async def acp_runtime_live(runtime_id: str):
     from hermes_agent.acp.models import AcpConversation, AcpRuntime
 

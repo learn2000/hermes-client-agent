@@ -93,6 +93,8 @@
 </table>
 
 <script>
+var ACP_TOKEN = '{{ acp_token }}';
+
 function openLive(taskId) { openLiveWindow(taskId, '/acp/tasks/' + taskId + '/live'); }
 function openLiveRuntime(runtimeId) { openLiveWindow(runtimeId, '/acp/runtimes/' + runtimeId + '/live'); }
 
@@ -100,7 +102,7 @@ function openLiveWindow(id, endpoint) {
   var w = window.open('', '_blank', 'width=900,height=700');
   w.document.write('<html><head><title>Live: ' + id + '</title><style>body{background:#0d1117;color:#c9d1d9;font:13px monospace;padding:16px;margin:0}h2{color:#58a6ff;font-size:14px;margin:0 0 8px 0}.msg{padding:8px;margin:4px 0;border-radius:4px}.user{background:#161b22;border-left:2px solid #58a6ff}.assistant{background:#0d1117;border-left:2px solid #3fb950}.text{white-space:pre-wrap;word-break:break-word}.meta{font-size:11px;color:#8b949e;margin-bottom:4px}.tool{color:#d29922;margin-left:8px}@keyframes spin{to{transform:rotate(360deg)}}.spinner{display:inline-block;width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}</style></head><body><h2><span class="spinner"></span> ' + id + '</h2><div id="log"></div></body></html>');
   var refresh = setInterval(function() {
-    fetch(endpoint).then(function(r) { return r.json(); }).then(function(d) {
+    fetch(endpoint, {headers: {'X-Agent-Token': ACP_TOKEN}}).then(function(r) { return r.json(); }).then(function(d) {
       var html = '';
       var msgs = d.messages || [];
       if (d.note) { document.getElementById('log').innerHTML = '<p style="color:#8b949e">' + d.note + '</p>'; return; }
