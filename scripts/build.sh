@@ -5,6 +5,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+if [ -d ".venv" ] && [ ! -w ".venv" ]; then
+    echo "ERROR: .venv/ is not writable (owned by another user)."
+    echo "  Fix:  sudo chown -R \$USER:\$USER .venv/"
+    echo "  Or:   rm -rf .venv && uv sync"
+    exit 1
+fi
+
 echo "Installing dependencies with uv..."
 uv sync
 
