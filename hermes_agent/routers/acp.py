@@ -111,3 +111,30 @@ async def acp_list_sessions():
 @router.get("/acp/diagnostics", summary="Run ACP diagnostics")
 async def acp_diagnostics(agent_type: str = Query("opencode")):
     return run_diagnostics(agent_type)
+
+
+@router.get("/acp/runtimes/{runtime_id}/live", summary="Get live OpenCode session messages for a runtime")
+async def acp_runtime_live(runtime_id: str):
+    from hermes_agent.acp.models import AcpConversation, AcpRuntime
+
+    import httpx
+
+    runtime = AcpRuntime.get_or_none(AcpRuntime.runtime_id == runtime_id)
+    if not runtime:
+        raise HTTPException(status_code=404, detail=f"Runtime {runtime_id} not found")
+
+    convs = list(AcpConversation.select().where(AcpConversation.runtime_id == runtime_id))
+    if not convs:
+        return {"messages": [], "note": "no conversation attached to this runtime"}
+
+    sid = convs[0].upstream_session_id
+    if not sid:
+        return {"messages": [], "note": "no upstream session yet"}
+
+    try:
+        resp = httpx.get(f"{runtime.endpoint.rstrip('/')}/session/{sid}/message", timeout=5)
+        resp.raise_for_status()
+        messages = resp.json()
+        return {"session_id": sid, "endpoint": runtime.endpoint, "count": len(messages), "messages": messages}
+    except Exception as exc:
+        return {"error": str(exc), "endpoint": runtime.endpoint}

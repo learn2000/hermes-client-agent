@@ -78,7 +78,7 @@
     </thead>
     <tbody>
       {% for s in acp.sessions %}
-      <tr style="cursor:pointer" onclick="window.open('http://localhost:{{ s.port }}/','_blank')" title="Open OpenCode web UI on port {{ s.port }}">
+      <tr style="cursor:pointer" onclick="openLiveRuntime('{{ s.session_id }}')" title="View conversation history">
         <td>{{ s.session_id }}</td>
         <td><span class="badge ok">{{ s.port }}</span></td>
         <td>{{ s.pid or '-' }}</td>
@@ -86,7 +86,6 @@
         <td>{{ s.exchange_count }}</td>
         <td>{{ s.created_at[:19] if s.created_at else '-' }}</td>
         <td>{{ s.last_heartbeat[:19] if s.last_heartbeat else '-' }}</td>
-        <td><a href="http://localhost:{{ s.port }}/" target="_blank" style="color:#58a6ff" onclick="event.stopPropagation()">Open</a></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -116,16 +115,26 @@
 
 <script>
 function openLive(taskId) {
-  var w = window.open('', '_blank', 'width=900,height=700');
-  w.document.write('<html><head><title>Live: ' + taskId + '</title><style>body{background:#0d1117;color:#c9d1d9;font:13px monospace;padding:16px;margin:0}h2{color:#58a6ff;font-size:14px;margin:0 0 8px 0}.msg{padding:8px;margin:4px 0;border-radius:4px}.user{background:#161b22;border-left:2px solid #58a6ff}.assistant{background:#0d1117;border-left:2px solid #3fb950}.text{white-space:pre-wrap;word-break:break-word}.meta{font-size:11px;color:#8b949e;margin-bottom:4px}.tool{color:#d29922;margin-left:8px}@keyframes spin{to{transform:rotate(360deg)}}.spinner{display:inline-block;width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}</style></head><body><h2><span class="spinner"></span> ' + taskId + '</h2><div id="log"></div></body></html>');
+  openLiveWindow(taskId, '/acp/tasks/' + taskId + '/live');
+}
 
-  setInterval(function() {
-    fetch('/acp/tasks/' + taskId + '/live')
+function openLiveRuntime(runtimeId) {
+  openLiveWindow(runtimeId, '/acp/runtimes/' + runtimeId + '/live');
+}
+
+function openLiveWindow(id, endpoint) {
+  var w = window.open('', '_blank', 'width=900,height=700');
+  w.document.write('<html><head><title>Live: ' + id + '</title><style>body{background:#0d1117;color:#c9d1d9;font:13px monospace;padding:16px;margin:0}h2{color:#58a6ff;font-size:14px;margin:0 0 8px 0}.msg{padding:8px;margin:4px 0;border-radius:4px}.user{background:#161b22;border-left:2px solid #58a6ff}.assistant{background:#0d1117;border-left:2px solid #3fb950}.text{white-space:pre-wrap;word-break:break-word}.meta{font-size:11px;color:#8b949e;margin-bottom:4px}.tool{color:#d29922;margin-left:8px}@keyframes spin{to{transform:rotate(360deg)}}.spinner{display:inline-block;width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}</style></head><body><h2><span class="spinner"></span> ' + id + '</h2><div id="log"></div></body></html>');
+
+  var refresh = setInterval(function() {
+    fetch(endpoint)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         var html = '';
         var msgs = d.messages || [];
-        for (var i = Math.max(0, msgs.length - 20); i < msgs.length; i++) {
+        if (d.note) { document.getElementById('log').innerHTML = '<p style="color:#8b949e">' + d.note + '</p>'; return; }
+        if (d.error) { document.getElementById('log').innerHTML = '<p style="color:#f85149">' + d.error + '</p>'; clearInterval(refresh); return; }
+        for (var i = Math.max(0, msgs.length - 30); i < msgs.length; i++) {
           var m = msgs[i];
           var info = m.info || {};
           var role = info.role || '?';
@@ -136,17 +145,22 @@ function openLive(taskId) {
           html += '</div>';
           (m.parts || []).forEach(function(p) {
             if (p.type === 'text' && p.text) html += '<div class="text">' + p.text + '</div>';
-            else if (p.type === 'step-start') html += '<div class="tool">&#9654; step started</div>';
-            else if (p.type === 'step-finish') html += '<div class="tool">&#9632; step finished</div>';
-            else if (p.type && p.type !== 'text') html += '<div class="tool">&#9881; ' + p.type + '</div>';
+            else if (p.type === 'step-start') html += '<div class="tool">step started</div>';
+            else if (p.type === 'step-finish') html += '<div class="tool">step finished</div>';
+            else if (p.type && p.type !== 'text') html += '<div class="tool">' + p.type + '</div>';
           });
           html += '</div>';
         }
         document.getElementById('log').innerHTML = html || '<p style="color:#8b949e">Waiting for messages...</p>';
-        if (msgs.length > 20) {
-          document.getElementById('log').innerHTML = '<p style="color:#8b949e;font-size:11px">Showing last 20 of ' + msgs.length + ' messages</p>' + html;
+        if (msgs.length > 30) {
+          document.getElementById('log').innerHTML = '<p style="color:#8b949e;font-size:11px">Showing last 30 of ' + msgs.length + ' messages</p>' + html;
         }
         window.scrollTo(0, document.body.scrollHeight);
+        if (d.count && d.messages.length > 0) {
+          var lastMsg = d.messages[d.messages.length - 1];
+          var lastRole = (lastMsg.info || {}).role;
+          if (lastRole === 'assistant') { clearInterval(refresh); }
+        }
       })
       .catch(function() {});
   }, 2000);
