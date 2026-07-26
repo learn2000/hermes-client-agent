@@ -26,7 +26,7 @@ else:
 
 HOST = os.environ.get("HERMES_AGENT_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HERMES_AGENT_PORT", "8765"))
-RATE_LIMIT = 60
+RATE_LIMIT = 200
 RATE_WINDOW = 60
 
 DEBUG = os.environ.get("HERMES_AGENT_DEBUG", "false").lower() in ("true", "1", "yes")
