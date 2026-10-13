@@ -22,9 +22,9 @@ produces an upright image.
 These tests mock ctypes.windll so they run cross-platform and fail if the
 orientation logic regresses.
 """
-import struct
-from unittest.mock import patch, MagicMock
 import ctypes as _ctypes
+import struct
+from unittest.mock import MagicMock, patch
 
 import hermes_agent.routers.screenshot as shot
 
